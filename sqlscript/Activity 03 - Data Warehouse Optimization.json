@@ -1,0 +1,16 @@
+{
+	"name": "Activity 03 - Data Warehouse Optimization",
+	"properties": {
+		"content": {
+			"query": "SELECT\r\n    MIN(AvgPrice) as MinCustomerAvgPrice\r\n    ,MAX(AvgPrice) as MaxCustomerAvgPrice\r\n    ,MIN(AvgTotalAmount) as MinCustomerAvgTotalAmount\r\n    ,MAX(AvgTotalAmount) as MaxCustomerAvgTotalAmount\r\n    ,MIN(AvgProfitAmount) as MinAvgProfitAmount\r\n    ,MAX(AvgProfitAmount) as MaxAvgProfitAmount\r\nFROM\r\n(\r\n    SELECT\r\n        FS.CustomerID\r\n        ,MIN(FS.Quantity) as MinQuantity\r\n        ,MAX(FS.Quantity) as MaxQuantity\r\n        ,AVG(FS.Price) as AvgPrice\r\n        ,AVG(FS.TotalAmount) as AvgTotalAmount\r\n        ,AVG(FS.ProfitAmount) as AvgProfitAmount\r\n        ,COUNT(DISTINCT FS.StoreId) as DistinctStores\r\n    FROM\r\n        wwi_perf.Sale_Heap FS\r\n    GROUP BY\r\n        FS.CustomerId\r\n) T\r\n",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"name": "SQLPool01",
+				"type": "SqlPool"
+			}
+		},
+		"type": "SqlQuery"
+	}
+}

@@ -1,0 +1,469 @@
+{
+	"name": "Lab 07 - Part 1 - Spark DataFrames",
+	"properties": {
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "SparkPool01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2
+		},
+		"metadata": {
+			"language_info": {
+				"name": "python"
+			},
+			"sessionKeepAliveTimeout": 60
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Working with Spark DataFrames in Synapse Spark"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Working with schemas and lake databases\r\n",
+					"\r\n",
+					"Use `spark.read.csv()` to load the data from the source public blob storage account and display its schema and shape."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"from pyspark.sql.types import *\r\n",
+					"import numpy as np\r\n",
+					"import pandas as pd\r\n",
+					"from delta.tables import DeltaTable\r\n",
+					"\r\n",
+					"manualSchema = StructType([\r\n",
+					"  StructField(\"CustomerId\", StringType(), True),\r\n",
+					"  StructField(\"ProductId\", StringType(), True),\r\n",
+					"  StructField(\"Rating\", LongType(), True),\r\n",
+					"  StructField(\"Cost\", FloatType(), True),\r\n",
+					"  StructField(\"Size\", FloatType(), True),\r\n",
+					"  StructField(\"Price\", FloatType(), True),\r\n",
+					"  StructField(\"PrimaryBrandId\", LongType(), True),\r\n",
+					"  StructField(\"GenderId\", LongType(), True),\r\n",
+					"  StructField(\"MaritalStatus\", LongType(), True),\r\n",
+					"  StructField(\"LowerIncomeBound\", FloatType(), True),\r\n",
+					"  StructField(\"UpperIncomeBound\", FloatType(), True)\r\n",
+					"])\r\n",
+					"\r\n",
+					"url = \"wasbs://files@synapsemlpublic.blob.core.windows.net/PersonalizedData.csv\"\r\n",
+					"df = spark.read.csv(url, header=True, schema=manualSchema)\r\n",
+					"print(\"Schema: \")\r\n",
+					"df.printSchema()"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Create a new Lake Database. Observe the use of the `%%spark` magic to switch the language of the cell to Scala."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "scala"
+					}
+				},
+				"source": [
+					"%%spark\r\n",
+					"spark.sql(\"CREATE DATABASE IF NOT EXISTS Customers\")"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Save the dataframe as a table in the newly created database."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df.write.mode(\"overwrite\").saveAsTable(\"Customers.Customer\")"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Observe the newly created database and table. You can find them by navigating in Synapse Studio to the `Data` hub, and selecting the `Lake database` group from the `Workspace` section.\r\n",
+					"\r\n",
+					"If you rightclick on the table, and select the `New SQL script` option, you will be able to run a SQL query on the table using the serverless SQL pool. This shows how the Spark and Serverless SQL runtimes share the schema information of the lake database.\r\n",
+					"\r\n",
+					"![Newly created lake database and table](https://solliancepublicdata.blob.core.windows.net/synapse-l400/notebook-images/customers-lake-database.png)"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Spark DataFrame operations\r\n",
+					"\r\n",
+					"Load another DataFrame, this time from multiple folders located in the Synapse workspace data lake."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"df_sales = spark.read.load('abfss://wwi-02@asadatalake641162.dfs.core.windows.net/sale-small/Year=2019/Quarter=Q4/Month=12/*/*.parquet', format='parquet')\r\n",
+					"display(df_sales.limit(10))"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Apache Spark evaluates the file contents to infer the schema. This automatic inference is sufficient for data exploration and most transformation tasks. However, when you load data to an external resource like a SQL pool table, sometimes you need to declare your own schema and apply that to the dataset."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_sales.printSchema()"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Apply grouping and aggregation operations to find daily total quantity, average quantity, and total profit, per product.\r\n",
+					"\r\n",
+					"Observe how applying the operations to the DataFrame has no effect yet. This is because the chain does not end with an operation that would force the materialization (execution) of the chain of operations."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"from pyspark.sql.types import *\r\n",
+					"from pyspark.sql.functions import *\r\n",
+					"\r\n",
+					"profitByDateProduct = (df_sales.groupBy(\"TransactionDate\",\"ProductId\")\r\n",
+					"    .agg(\r\n",
+					"        sum(\"ProfitAmount\").alias(\"(sum)ProfitAmount\"),\r\n",
+					"        round(avg(\"Quantity\"), 4).alias(\"(avg)Quantity\"),\r\n",
+					"        sum(\"Quantity\").alias(\"(sum)Quantity\"))\r\n",
+					"    .orderBy(\"TransactionDate\"))"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Call `limit()` to materialize the operations."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"display(profitByDateProduct.limit(100))"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## DataFrame partitions"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Check the number of partitions automatically determined by Spark."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_sales.rdd.getNumPartitions()"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Repartition the Spark dataframe (reorganize it into 10 partitions)."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_sales = df_sales.repartition(10)\r\n",
+					"df_sales.rdd.getNumPartitions()"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Persist the Spark dataframe to the data lake storage. Once execution completes, check the `/temp/sales1` data lake location to confirm the write operation generated 10 separate Parquet files (according to the new number of partitions)."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_sales.write.mode('overwrite').parquet('abfss://wwi-02@asadatalake641162.dfs.core.windows.net/temp/sales1')"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Repartition again the dataframe, this time based on the values of the `TransactionDate` column. Once execution completes, check the `/temp/sales2` data lake location to confirm the write operation generated 31 separate Parquet files organized in subfolders named after the values of the `TransactionDate` column."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_sales.write.partitionBy('TransactionDate').mode('overwrite').parquet('abfss://wwi-02@asadatalake641162.dfs.core.windows.net/temp/sales2')"
+				],
+				"attachments": null,
+				"execution_count": null
+			}
+		]
+	}
+}

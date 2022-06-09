@@ -1,0 +1,926 @@
+{
+	"name": "Lab 06 - Part 1 - Synapse ML",
+	"properties": {
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "SparkPool01",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2
+		},
+		"metadata": {
+			"language_info": {
+				"name": "python"
+			},
+			"sessionKeepAliveTimeout": 60
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Install Synapse ML in the Apache Spark session"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"%%configure -f\n",
+					"{\n",
+					"    \"name\": \"synapseml\",\n",
+					"    \"conf\": {\n",
+					"        \"spark.jars.packages\": \"com.microsoft.azure:synapseml_2.12:0.9.4\",\n",
+					"        \"spark.jars.repositories\": \"https://mmlspark.azureedge.net/maven\",\n",
+					"        \"spark.jars.excludes\": \"org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12\",\n",
+					"        \"spark.yarn.user.classpath.first\": \"true\"\n",
+					"    }\n",
+					"}"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Part 1 - Entity detection with Cognitive Services\n",
+					"\n",
+					"Detect entities in text using the Cognitive Services entity detector transformer from Synapse ML."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Retrieve the Cognitive Services credentials and create the test dataset."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false,
+						"source_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"key = mssparkutils.credentials.getSecret('asakeyvault641162', 'COGNITIVE-SERVICES-KEY')\n",
+					"location = ''\n",
+					"\n",
+					"df = spark.createDataFrame(data=[\n",
+					"        [1, \"Muad'Dib learned rapidly because his first training was in how to learn. And the first lesson of all was the basic trust that he could learn. It's shocking to find how many people do not believe they can learn, and how many more believe learning to be difficult. Muad'Dib knew that every experience carries its lesson.\"],\n",
+					"        [2, \"It's the ship that made the Kessel run in less than twelve parsecs. I've outrun Imperial starships. Not the local bulk cruisers, mind you. I'm talking about the big Corellian ships, now. She's fast enough for you, old man.\"]\n",
+					"    ], \n",
+					"    schema=[\"id\",\"text\"])"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Define the transformer to detect the entities mentioned in text."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false,
+						"source_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"from synapse.ml.cognitive import *\n",
+					"\n",
+					"entity = (EntityDetector()\n",
+					"      .setSubscriptionKey(key)\n",
+					"      .setLocation(location)\n",
+					"      .setLanguage(\"en\")\n",
+					"      .setOutputCol(\"entities\")\n",
+					"      .setErrorCol(\"error\"))\n",
+					"\n",
+					"df_entities = entity.transform(df)"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Check out the entities identified from the first phrase."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false,
+						"source_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"print(df_entities.head(1)[0].entities[0].entities[0].id)\n",
+					"print(df_entities.head(1)[0].entities[0].entities[0].url)"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Check out the entities identified from the second phrase."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false,
+						"source_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"print(df_entities.tail(1)[0].entities[0].entities[0].id)\n",
+					"print(df_entities.tail(1)[0].entities[0].entities[0].url)"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Part 2 - Train a customer recommendation model\n",
+					"\n",
+					"Use the LightGBM Synapse ML algorithm to train a model for retail product recommendation."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Configure\n",
+					"\n",
+					"Reference the required libraries and check Synapse ML version (shoudl be 0.9.4)."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false,
+						"source_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"import logging\n",
+					"logging.getLogger(\"py4j\").setLevel(logging.ERROR)\n",
+					"\n",
+					"import pandas as pd\n",
+					"import seaborn as sns\n",
+					"from matplotlib import pyplot as plt\n",
+					"\n",
+					"from pyspark.version import __version__ as pyspark_version\n",
+					"\n",
+					"from synapse.ml.core import __spark_package_version__\n",
+					"from synapse.ml.train import ComputeModelStatistics\n",
+					"from synapse.ml.lightgbm import LightGBMClassifier\n",
+					"from pyspark.ml.feature import VectorAssembler\n",
+					"\n",
+					"pd.set_option('display.max_columns', 50)\n",
+					"\n",
+					"print(f\"PySpark version: {pyspark_version}\")\n",
+					"print(f\"SynapseML version: {__spark_package_version__}\")"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"Set the data preparation and model training parameters. \n",
+					"\n",
+					"Check the [Synapse ML LightGBM documentation](https://microsoft.github.io/SynapseML/docs/features/lightgbm/LightGBM%20-%20Overview/) for more details on setting the parameters of the ML model."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false,
+						"source_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"# Blob url\n",
+					"# Original blob: \"https://recodatasets.z20.web.core.windows.net/random-dataset/PersonalizedData.csv\"\n",
+					"url = \"wasbs://files@synapsemlpublic.blob.core.windows.net/PersonalizedData.csv\"\n",
+					"\n",
+					"# Data parameters\n",
+					"LABEL_COL = \"Rating\"\n",
+					"FEATURE_COL = \"features\"\n",
+					"RATIO = 0.8\n",
+					"SEED = 42\n",
+					"\n",
+					"# Model parameters\n",
+					"OBJECTIVE = \"binary\"\n",
+					"BOOSTING = \"gbdt\"\n",
+					"NUM_LEAVES = 32\n",
+					"NUM_ITERATIONS = 100\n",
+					"LEARNING_RATE = 0.1\n",
+					"FEATURE_FRACTION = 0.8\n",
+					"EARLY_STOPPING_ROUND = 10\n",
+					"MODEL_NAME = \"lgb-quickstart\"\n"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Prepare and analyze data\n",
+					"\n",
+					"\n",
+					"Load the data from the source and observe the schema."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false,
+						"source_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"# Added the file to linked ADLSv2\n",
+					"raw_data = spark.read.csv(url, header=True, inferSchema=True)\n",
+					"print(\"Schema: \")\n",
+					"# raw_data.printSchema()\n",
+					"\n",
+					"df = raw_data.toPandas()\n",
+					"print(\"Shape: \", df.shape)"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"\n",
+					"Take a look at some of the items in the dataset. Notice the two-class ratings (0 vs. 1) provided by customers to products.\n",
+					"The goal of this exercise is to build a Machine Learning classification model capable of predicting the rating based on Cost, Size, Price, PrimaryBrandId, GenderId, MaritalStatus, LowerIncomeBound, and UpperIncomeBound. To achieve the goal, you will use Azure Machine Learning (AML) automated machine learning (Auto ML)."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"display(df.iloc[:10, :])"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Check out the statistical properties of the dataset."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false,
+						"source_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"df.describe()\n"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Calculate and display the dataset fratures correlation matrix."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false,
+						"source_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"# calculate the correlation matrix\n",
+					"corr = df.corr()\n",
+					"\n",
+					"# plot the correlation heatmap\n",
+					"fig, ax = plt.subplots(figsize=(10,10))         # Sample figsize in inches\n",
+					"\n",
+					"sns.heatmap(corr, \n",
+					"            xticklabels=corr.columns, \n",
+					"            yticklabels=corr.columns, \n",
+					"            cmap='RdBu', \n",
+					"            vmin=-1, \n",
+					"            vmax=1, \n",
+					"            ax=ax, \n",
+					"            annot=True,\n",
+					"            fmt='.2f', \n",
+					"            annot_kws={'size': 10})\n",
+					"plt.show()"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Display the paiwise feature correlations as scatterplots."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false,
+						"source_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"#scatterplot\n",
+					"sns.set()\n",
+					"sns.pairplot(df, height=2.5)\n",
+					"plt.show()"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Train the ML model\n",
+					"\n",
+					"Split the dataset into train and test subsets."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false,
+						"source_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"raw_train, raw_test = raw_data.randomSplit([RATIO, 1 - RATIO], seed=SEED)\n",
+					"print(\"Train: (rows, columns) = {}\".format((raw_train.count(), len(raw_train.columns))))\n",
+					"print(\"Test: (rows, columns) = {}\".format((raw_test.count(), len(raw_test.columns))))"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Perform feature engineering - transform the original data feature columns into feature vectors."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false,
+						"source_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"columns = raw_data.columns[3:]\n",
+					"featurizer = VectorAssembler(inputCols=columns, outputCol=FEATURE_COL)\n",
+					"train = featurizer.transform(raw_train)[LABEL_COL, FEATURE_COL]\n",
+					"test = featurizer.transform(raw_test)[LABEL_COL, FEATURE_COL]"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Check if data is unbalanced."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false,
+						"source_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"display(train.groupBy(LABEL_COL).count())\n"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Define the LBGM model.\n"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false,
+						"source_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"lgbm = LightGBMClassifier(\n",
+					"    labelCol=LABEL_COL,\n",
+					"    featuresCol=FEATURE_COL,\n",
+					"    objective=OBJECTIVE,\n",
+					"    isUnbalance=False,\n",
+					"    boostingType=BOOSTING,\n",
+					"    boostFromAverage=True,\n",
+					"    baggingSeed=SEED,\n",
+					"    numLeaves=NUM_LEAVES,\n",
+					"    numIterations=NUM_ITERATIONS,\n",
+					"    learningRate=LEARNING_RATE,\n",
+					"    featureFraction=FEATURE_FRACTION,\n",
+					"    earlyStoppingRound=EARLY_STOPPING_ROUND\n",
+					")\n"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Train the LGBM model."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false,
+						"source_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"model = lgbm.fit(train)"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"Display the relative feature importance as it results from the training process."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"feature_importances = model.getFeatureImportances()\n",
+					"fi = pd.Series(feature_importances,index = columns)\n",
+					"fi = fi.sort_values(ascending = True)\n",
+					"f_index = fi.index\n",
+					"f_values = fi.values\n",
+					" \n",
+					"# print feature importances \n",
+					"print ('f_index:',f_index)\n",
+					"print ('f_values:',f_values)\n",
+					"\n",
+					"# plot\n",
+					"x_index = list(range(len(fi)))\n",
+					"x_index = [x/len(fi) for x in x_index]\n",
+					"plt.rcParams['figure.figsize'] = (10,10)\n",
+					"plt.barh(x_index,f_values,height = 0.028 ,align=\"center\",color = 'tan',tick_label=f_index)\n",
+					"plt.xlabel('importances')\n",
+					"plt.ylabel('features')\n",
+					"plt.show()"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## Perform predictions with the model"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false,
+						"source_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"predictions = model.transform(test)\n"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"display(predictions.limit(10))"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Evaluate the performance of the model."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false,
+						"source_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"evaluator = (\n",
+					"    ComputeModelStatistics()\n",
+					"    .setScoredLabelsCol(\"prediction\")\n",
+					"    .setLabelCol(LABEL_COL)\n",
+					"    .setEvaluationMetric(\"classification\")\n",
+					")\n",
+					"\n",
+					"metrics = evaluator.transform(predictions)"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Observe the main performance metrics of a classification model:\n",
+					"\n",
+					"- Confision matrix\n",
+					"- Accuracy\n",
+					"- Precision\n",
+					"- Recall\n",
+					"- AUC (Area Under the Curve)"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false,
+						"source_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"display(metrics)"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Save the model\n",
+					"\n",
+					"Save the model to storage."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false,
+						"source_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"print(MODEL_NAME)\n",
+					"(model\n",
+					" .write()\n",
+					" .overwrite()\n",
+					" .save(MODEL_NAME))\n"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"##"
+				],
+				"attachments": null
+			}
+		]
+	}
+}
